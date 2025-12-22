@@ -5,25 +5,49 @@ from contextlib import asynccontextmanager
 import re
 import aiosqlite
 import os
+import yaml
+import logging
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "databases", "lookup.db")
+# Load configuration
+def load_config():
+    """Load configuration from YAML file"""
+    config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+    with open(config_path, 'r') as f:
+        return yaml.safe_load(f)
+
+config = load_config()
+
+# Setup logging
+logging.basicConfig(
+    level=getattr(logging, config['logging']['level']),
+    format=config['logging']['format']
+)
+logger = logging.getLogger(__name__)
+
+# Database path from config
+DB_PATH = os.path.join(os.path.dirname(__file__), config['database']['path'])
 
 
 async def init_database():
     """Initialize the database with schema"""
+    schema_path = os.path.join(os.path.dirname(__file__), config['database']['schema_path'])
+    logger.info(f"Initializing database at {DB_PATH}")
     async with aiosqlite.connect(DB_PATH) as db:
-        schema_path = os.path.join(os.path.dirname(__file__), "databases", "schema.sql")
         with open(schema_path, 'r') as f:
             schema = f.read()
         await db.executescript(schema)
         await db.commit()
+    logger.info("Database initialized successfully")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown events"""
+    logger.info("Starting HTTP Lookup Service...")
     await init_database()
+    logger.info(f"Server configuration: {config['server']}")
     yield
+    logger.info("Shutting down HTTP Lookup Service...")
 
 app = FastAPI(title="HTTP Lookup Service", version="1.0.0", lifespan=lifespan)
 
@@ -31,6 +55,7 @@ app = FastAPI(title="HTTP Lookup Service", version="1.0.0", lifespan=lifespan)
 async def lookup_domain(hostname):
     """
     Lookup domain status in database.
+    Respects configuration setting for domain lookup.
     
     Args:
         hostname: The hostname to lookup
@@ -38,6 +63,10 @@ async def lookup_domain(hostname):
     Returns:
         dict: Domain information or None if not found
     """
+    # Check if domain lookup is enabled in config
+    if not config['security']['enable_domain_lookup']:
+        return None
+    
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
@@ -58,6 +87,7 @@ async def lookup_domain(hostname):
 async def check_malicious_patterns(url):
     """
     Check URL path and query for malicious patterns.
+    Respects configuration setting for pattern matching.
     
     Args:
         url: The full URL to check
@@ -65,6 +95,10 @@ async def check_malicious_patterns(url):
     Returns:
         dict: Malicious pattern information or None if clean
     """
+    # Check if pattern matching is enabled in config
+    if not config['security']['enable_pattern_matching']:
+        return None
+    
     parsed = urlparse(url)
     full_url = f"{parsed.path}?{parsed.query}" if parsed.query else parsed.path
     
@@ -143,6 +177,7 @@ def decode_url_parts(url):
 def validate_url_regex(url):
     """
     Validates URL using regex pattern for HTTP/HTTPS URLs.
+    Uses allowed schemes from configuration.
     
     Args:
         url: The URL string to validate
@@ -150,20 +185,32 @@ def validate_url_regex(url):
     Returns:
         bool: True if URL matches HTTP/HTTPS pattern, False otherwise
     """
+    # Get allowed schemes from config
+    allowed_schemes = config['security']['validation']['allowed_schemes']
+    schemes_pattern = '|'.join(allowed_schemes)
+    
     # HTTP/HTTPS URL regex pattern
-    pattern = r'^https?://[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*(:[0-9]{1,5})?(/.*)?$'
+    pattern = f'^({schemes_pattern})://[a-zA-Z0-9]([a-zA-Z0-9\\-]{{0,61}}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9\\-]{{0,61}}[a-zA-Z0-9])?)*(:[0-9]{{1,5}})?(/.*)?$'
     
     if not re.match(pattern, url):
         return False
     
     # Additional validation: check port range if present
+    min_port = config['security']['validation']['min_port']
+    max_port = config['security']['validation']['max_port']
+    
     try:
         parsed = urlparse(url)
         if parsed.port is not None:
-            if parsed.port < 1 or parsed.port > 65535:
+            if parsed.port < min_port or parsed.port > max_port:
                 return False
     except ValueError:
         # Invalid port format
+        return False
+    
+    # Check maximum URL length
+    max_length = config['security']['validation']['max_url_length']
+    if len(url) > max_length:
         return False
     
     return True
@@ -307,4 +354,17 @@ async def health_check():
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=8000)
+    
+    # Get server configuration from config file
+    host = config['server']['host']
+    port = config['server']['port']
+    workers = config['server']['workers']
+    
+    logger.info(f"Starting server on {host}:{port} with {workers} worker(s)")
+    
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        workers=workers
+    )

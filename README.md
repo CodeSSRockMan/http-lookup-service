@@ -16,10 +16,13 @@ A high-performance FastAPI-based URL threat intelligence service for validating 
 # Install dependencies
 pip install -r requirements.txt
 
+# Configure server (optional - defaults to port 8000)
+# Edit config.yaml to change port, host, or other settings
+
 # Run server
 python main.py
 
-# Server runs on http://localhost:5000
+# Server runs on http://localhost:8000 (or your configured port)
 ```
 
 ## API Usage
@@ -38,6 +41,7 @@ curl http://localhost:5000/health
 ## Documentation
 
 - **API Reference**: [docs/API.md](docs/API.md)
+- **Configuration Guide**: [docs/CONFIG.md](docs/CONFIG.md) - **How to change port and other settings**
 - **Security Architecture**: [docs/SECURITY.md](docs/SECURITY.md) - **Important: Read this to understand the security pipeline**
 - **Database Schema**: [databases/SCHEMA.md](databases/SCHEMA.md)
 - **Development Process**: [docs/development_process.md](docs/development_process.md)
