@@ -55,6 +55,37 @@ async def lookup_domain(hostname):
     return None
 
 
+async def check_malicious_patterns(url):
+    """
+    Check URL path and query for malicious patterns.
+    
+    Args:
+        url: The full URL to check
+        
+    Returns:
+        dict: Malicious pattern information or None if clean
+    """
+    parsed = urlparse(url)
+    full_url = f"{parsed.path}?{parsed.query}" if parsed.query else parsed.path
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT pattern, pattern_type, threat_type, description FROM malicious_queries"
+        ) as cursor:
+            async for row in cursor:
+                pattern = row['pattern']
+                # Check if pattern exists in URL (case-insensitive)
+                if pattern.lower() in full_url.lower():
+                    return {
+                        'pattern': row['pattern'],
+                        'pattern_type': row['pattern_type'],
+                        'threat_type': row['threat_type'],
+                        'description': row['description']
+                    }
+    return None
+
+
 def sanitize_url(url):
     """
     Sanitizes the URL by removing potentially harmful characters.
@@ -195,8 +226,11 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
         # Lookup domain in database
         domain_info = await lookup_domain(hostname)
         
+        # Check for malicious patterns in the decoded URL
+        malicious_info = await check_malicious_patterns(decoded_url)
+        
         if domain_info:
-            return {
+            result = {
                 'valid': True,
                 'url': decoded_url,
                 'lookup_result': {
@@ -208,7 +242,7 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
                 }
             }
         else:
-            return {
+            result = {
                 'valid': True,
                 'url': decoded_url,
                 'lookup_result': {
@@ -218,6 +252,22 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
                     'message': 'Domain not found in database'
                 }
             }
+        
+        # If malicious patterns found, add to result
+        if malicious_info:
+            result['malicious_patterns'] = {
+                'found': True,
+                'pattern': malicious_info['pattern'],
+                'pattern_type': malicious_info['pattern_type'],
+                'threat_type': malicious_info['threat_type'],
+                'description': malicious_info['description']
+            }
+        else:
+            result['malicious_patterns'] = {
+                'found': False
+            }
+        
+        return result
         
     except HTTPException:
         raise

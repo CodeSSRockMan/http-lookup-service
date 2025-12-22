@@ -190,6 +190,37 @@ class TestDatabaseLookup:
         assert data['lookup_result']['status'] == 'unknown'
 
 
+class TestMaliciousPatterns:
+    """Test malicious query pattern detection"""
+    
+    def test_sql_injection_detection(self):
+        response = client.get("/urlinfo/1/example.com/search?q=SELECT * FROM users")
+        assert response.status_code == 200
+        data = response.json()
+        assert data['malicious_patterns']['found'] == True
+        assert data['malicious_patterns']['threat_type'] == 'sql_injection'
+    
+    def test_xss_detection(self):
+        response = client.get("/urlinfo/1/example.com/page?input=<script>alert(1)</script>")
+        assert response.status_code == 200
+        data = response.json()
+        assert data['malicious_patterns']['found'] == True
+        assert data['malicious_patterns']['threat_type'] == 'xss'
+    
+    def test_path_traversal_detection(self):
+        response = client.get("/urlinfo/1/example.com/../../../etc/passwd")
+        assert response.status_code == 200
+        data = response.json()
+        assert data['malicious_patterns']['found'] == True
+        assert data['malicious_patterns']['threat_type'] == 'path_traversal'
+    
+    def test_clean_url_no_threats(self):
+        response = client.get("/urlinfo/1/example.com/products?id=123")
+        assert response.status_code == 200
+        data = response.json()
+        assert data['malicious_patterns']['found'] == False
+
+
 class TestHealthEndpoint:
     """Test health check endpoint"""
     

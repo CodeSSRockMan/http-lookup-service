@@ -1,15 +1,18 @@
 # Development Process Journal
 
 ## Step 1: Requirements and Scoping
+
 - Read through the project requirements
 - Scoped resources needed for the project
 
 ## Step 2: Initialize Git Project
+
 - Initialized git repository with an easy-to-read structure
 - Created organized folder structure for better maintainability
 - Enabled version control for the project
 
 ## Step 3: Initialize Basic Flask Server
+
 - Set up Flask server to handle GET requests
 - Created endpoint: `/urlinfo/1/{hostname_and_port}/{original_path_and_query_string}`
 - Implemented validation functions:
@@ -19,6 +22,7 @@
   - `validate_url_stages()` - orchestrates validation in stages
 
 ## Step 4: Migrate to FastAPI
+
 - Migrated from Flask to FastAPI for improved performance
 - FastAPI provides async support and better speed for URL lookup operations
 - Maintained all validation logic:
@@ -30,6 +34,7 @@
 - All tests passing successfully
 
 ## Step 5: Database Integration
+
 - Created SQLite database schema with indexed domains table
 - Table tracks hostname, status (safe/blacklisted/malicious/phishing), and metadata
 - Implemented async database lookup with aiosqlite
