@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Path, HTTPException
+from fastapi import FastAPI, Path, HTTPException, Request
 from fastapi.responses import JSONResponse
 from urllib.parse import unquote, unquote_plus, urlparse
 from contextlib import asynccontextmanager
@@ -170,19 +170,25 @@ def validate_url_regex(url):
 
 
 @app.get("/urlinfo/1/{url_parts:path}")
-async def check_url(url_parts: str = Path(..., description="Full path with hostname_and_port/original_path_and_query_string")):
+async def check_url(url_parts: str = Path(..., description="Full path with hostname_and_port/original_path_and_query_string"), request: Request = None):
     """
     Endpoint to check URL information.
     Format: /urlinfo/1/{hostname_and_port}/{original_path_and_query_string}
     
     Args:
         url_parts: The full path containing hostname_and_port and original_path_and_query_string
+        request: FastAPI Request object to get query string
     """
     try:
+        # Get query string if present
+        query_string = request.url.query if request and request.url.query else ''
+        
         # Check if url_parts starts with http:// or https://
         if url_parts.startswith('http://') or url_parts.startswith('https://'):
             # URL already has scheme, use it directly
             reconstructed_url = url_parts
+            if query_string:
+                reconstructed_url = f"{reconstructed_url}?{query_string}"
         else:
             # Split the url_parts to extract hostname_and_port
             parts = url_parts.split('/', 1)
@@ -201,14 +207,18 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
             
             # Reconstruct the full URL (assuming http by default)
             reconstructed_url = f"http://{hostname_and_port}/{original_path_and_query}" if original_path_and_query else f"http://{hostname_and_port}"
+            if query_string:
+                reconstructed_url = f"{reconstructed_url}?{query_string}"
         
-        # Sanitize the URL
-        sanitized_url = sanitize_url(reconstructed_url)
+        # SECURITY PIPELINE ORDER (CRITICAL FOR PREVENTING BYPASS ATTACKS):
+        # =====================================================================
+        # STEP 1: DECODE FIRST - Convert URL-encoded chars to actual values
+        #         WHY: Attackers can encode malicious chars like %27 (') or %3C (<)
+        #              to bypass regex/pattern matching. MUST decode before validation.
+        decoded_url = decode_url_parts(reconstructed_url)
         
-        # Decode URL-encoded characters
-        decoded_url = decode_url_parts(sanitized_url)
-        
-        # Validate using regex
+        # STEP 2: VALIDATE FORMAT - Check if it's a valid HTTP/HTTPS URL structure
+        #         WHY: No point in further processing if URL format is invalid.
         if not validate_url_regex(decoded_url):
             raise HTTPException(
                 status_code=400,
@@ -219,20 +229,28 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
                 }
             )
         
+        # STEP 3: PATTERN MATCH - Check decoded content for malicious patterns
+        #         WHY: Must check the actual decoded chars to detect SQLi, XSS, etc.
+        #              Encoded attacks like %27OR%201%3D1 would bypass if not decoded first.
+        malicious_info = await check_malicious_patterns(decoded_url)
+        
+        # STEP 4: SANITIZE - Remove control characters as a safety measure
+        #         WHY: Last-resort cleanup for edge cases. Not for security (already validated).
+        sanitized_url = sanitize_url(decoded_url)
+        
+        # STEP 5: DATABASE LOOKUP - Check domain reputation in database
+        #         WHY: After all validation/pattern checks, look up the domain's reputation.
         # Extract hostname for database lookup
-        parsed = urlparse(decoded_url)
+        parsed = urlparse(sanitized_url)
         hostname = parsed.hostname
         
         # Lookup domain in database
         domain_info = await lookup_domain(hostname)
         
-        # Check for malicious patterns in the decoded URL
-        malicious_info = await check_malicious_patterns(decoded_url)
-        
         if domain_info:
             result = {
                 'valid': True,
-                'url': decoded_url,
+                'url': sanitized_url,
                 'lookup_result': {
                     'found': True,
                     'hostname': domain_info['hostname'],
@@ -244,7 +262,7 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
         else:
             result = {
                 'valid': True,
-                'url': decoded_url,
+                'url': sanitized_url,
                 'lookup_result': {
                     'found': False,
                     'hostname': hostname,
@@ -289,4 +307,4 @@ async def health_check():
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=5000)
+    uvicorn.run(app, host='0.0.0.0', port=8000)

@@ -194,21 +194,23 @@ class TestMaliciousPatterns:
     """Test malicious query pattern detection"""
     
     def test_sql_injection_detection(self):
-        response = client.get("/urlinfo/1/example.com/search?q=SELECT * FROM users")
+        # URL encode the query parameter
+        response = client.get("/urlinfo/1/example.com/search?q=SELECT%20*%20FROM%20users")
         assert response.status_code == 200
         data = response.json()
         assert data['malicious_patterns']['found'] == True
         assert data['malicious_patterns']['threat_type'] == 'sql_injection'
     
     def test_xss_detection(self):
-        response = client.get("/urlinfo/1/example.com/page?input=<script>alert(1)</script>")
+        # URL encode the script tag
+        response = client.get("/urlinfo/1/example.com/page?input=%3Cscript%3Ealert(1)%3C/script%3E")
         assert response.status_code == 200
         data = response.json()
         assert data['malicious_patterns']['found'] == True
         assert data['malicious_patterns']['threat_type'] == 'xss'
     
     def test_path_traversal_detection(self):
-        response = client.get("/urlinfo/1/example.com/../../../etc/passwd")
+        response = client.get("/urlinfo/1/example.com/..%2F..%2F..%2Fetc%2Fpasswd")
         assert response.status_code == 200
         data = response.json()
         assert data['malicious_patterns']['found'] == True

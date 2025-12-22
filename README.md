@@ -38,6 +38,7 @@ curl http://localhost:5000/health
 ## Documentation
 
 - **API Reference**: [docs/API.md](docs/API.md)
+- **Security Architecture**: [docs/SECURITY.md](docs/SECURITY.md) - **Important: Read this to understand the security pipeline**
 - **Database Schema**: [databases/SCHEMA.md](databases/SCHEMA.md)
 - **Development Process**: [docs/development_process.md](docs/development_process.md)
 
