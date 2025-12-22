@@ -1,8 +1,9 @@
-from flask import Flask, jsonify
+from fastapi import FastAPI, Path, HTTPException
+from fastapi.responses import JSONResponse
 from urllib.parse import unquote, unquote_plus, urlparse
 import re
 
-app = Flask(__name__)
+app = FastAPI(title="HTTP Lookup Service", version="1.0.0")
 
 
 def sanitize_url(url):
@@ -88,8 +89,8 @@ def validate_url_regex(url):
     return True
 
 
-@app.route('/urlinfo/1/<path:url_parts>', methods=['GET'])
-def check_url(url_parts):
+@app.get("/urlinfo/1/{url_parts:path}")
+async def check_url(url_parts: str = Path(..., description="Full path with hostname_and_port/original_path_and_query_string")):
     """
     Endpoint to check URL information.
     Format: /urlinfo/1/{hostname_and_port}/{original_path_and_query_string}
@@ -98,22 +99,27 @@ def check_url(url_parts):
         url_parts: The full path containing hostname_and_port and original_path_and_query_string
     """
     try:
-        # Split the url_parts to extract hostname_and_port
-        parts = url_parts.split('/', 1)
-        
-        if len(parts) < 1:
-            return jsonify({
-                'error': 'Invalid URL format',
-                'message': 'Expected format: /urlinfo/1/{hostname_and_port}/{original_path_and_query_string}'
-            }), 400
-        
-        hostname_and_port = parts[0]
-        original_path_and_query = parts[1] if len(parts) > 1 else ''
-        
-        # Reconstruct the full URL (assuming http by default)
-        if hostname_and_port.startswith(('http://', 'https://')):
-            reconstructed_url = f"{hostname_and_port}/{original_path_and_query}" if original_path_and_query else hostname_and_port
+        # Check if url_parts starts with http:// or https://
+        if url_parts.startswith('http://') or url_parts.startswith('https://'):
+            # URL already has scheme, use it directly
+            reconstructed_url = url_parts
         else:
+            # Split the url_parts to extract hostname_and_port
+            parts = url_parts.split('/', 1)
+            
+            if len(parts) < 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        'error': 'Invalid URL format',
+                        'message': 'Expected format: /urlinfo/1/{hostname_and_port}/{original_path_and_query_string}'
+                    }
+                )
+            
+            hostname_and_port = parts[0]
+            original_path_and_query = parts[1] if len(parts) > 1 else ''
+            
+            # Reconstruct the full URL (assuming http by default)
             reconstructed_url = f"http://{hostname_and_port}/{original_path_and_query}" if original_path_and_query else f"http://{hostname_and_port}"
         
         # Sanitize the URL
@@ -124,29 +130,38 @@ def check_url(url_parts):
         
         # Validate using regex
         if not validate_url_regex(decoded_url):
-            return jsonify({
-                'error': 'Invalid HTTP URL',
-                'message': 'URL does not match valid HTTP/HTTPS format',
-                'url': decoded_url
-            }), 400
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    'error': 'Invalid HTTP URL',
+                    'message': 'URL does not match valid HTTP/HTTPS format',
+                    'url': decoded_url
+                }
+            )
         
-        return jsonify({
+        return {
             'valid': True,
             'url': decoded_url
-        }), 200
+        }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({
-            'error': 'Processing error',
-            'message': str(e)
-        }), 500
+        raise HTTPException(
+            status_code=500,
+            detail={
+                'error': 'Processing error',
+                'message': str(e)
+            }
+        )
 
 
-@app.route('/health', methods=['GET'])
-def health_check():
+@app.get("/health")
+async def health_check():
     """Health check endpoint"""
-    return jsonify({'status': 'healthy'}), 200
+    return {'status': 'healthy'}
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=5000)

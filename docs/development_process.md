@@ -17,3 +17,14 @@
   - `is_valid_hostname()` - validates hostname exists
   - `is_valid_port()` - validates port range (1-65535)
   - `validate_url_stages()` - orchestrates validation in stages
+
+## Step 4: Migrate to FastAPI
+- Migrated from Flask to FastAPI for improved performance
+- FastAPI provides async support and better speed for URL lookup operations
+- Maintained all validation logic:
+  - URL sanitization (removes control characters)
+  - URL decoding with `unquote()` for host/path and `unquote_plus()` for queries
+  - Regex validation for HTTP/HTTPS URLs
+  - Port range validation (1-65535)
+- Added comprehensive pytest test suite (29 tests)
+- All tests passing successfully
