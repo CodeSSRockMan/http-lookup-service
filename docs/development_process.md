@@ -28,3 +28,12 @@
   - Port range validation (1-65535)
 - Added comprehensive pytest test suite (29 tests)
 - All tests passing successfully
+
+## Step 5: Database Integration
+- Created SQLite database schema with indexed domains table
+- Table tracks hostname, status (safe/blacklisted/malicious/phishing), and metadata
+- Implemented async database lookup with aiosqlite
+- Integrated lookup into main endpoint - returns domain threat status
+- Added demo data for testing (8 sample domains)
+- Extended test suite to 34 tests covering database lookups
+- Database is read-only, suitable for multiple process instances

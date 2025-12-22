@@ -1,9 +1,58 @@
 from fastapi import FastAPI, Path, HTTPException
 from fastapi.responses import JSONResponse
 from urllib.parse import unquote, unquote_plus, urlparse
+from contextlib import asynccontextmanager
 import re
+import aiosqlite
+import os
 
-app = FastAPI(title="HTTP Lookup Service", version="1.0.0")
+DB_PATH = os.path.join(os.path.dirname(__file__), "databases", "lookup.db")
+
+
+async def init_database():
+    """Initialize the database with schema"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        schema_path = os.path.join(os.path.dirname(__file__), "databases", "schema.sql")
+        with open(schema_path, 'r') as f:
+            schema = f.read()
+        await db.executescript(schema)
+        await db.commit()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup/shutdown events"""
+    await init_database()
+    yield
+
+app = FastAPI(title="HTTP Lookup Service", version="1.0.0", lifespan=lifespan)
+
+
+async def lookup_domain(hostname):
+    """
+    Lookup domain status in database.
+    
+    Args:
+        hostname: The hostname to lookup
+        
+    Returns:
+        dict: Domain information or None if not found
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT hostname, status, description, last_updated FROM domains WHERE hostname = ?",
+            (hostname,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return {
+                    'hostname': row['hostname'],
+                    'status': row['status'],
+                    'description': row['description'],
+                    'last_updated': row['last_updated']
+                }
+    return None
 
 
 def sanitize_url(url):
@@ -139,10 +188,36 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
                 }
             )
         
-        return {
-            'valid': True,
-            'url': decoded_url
-        }
+        # Extract hostname for database lookup
+        parsed = urlparse(decoded_url)
+        hostname = parsed.hostname
+        
+        # Lookup domain in database
+        domain_info = await lookup_domain(hostname)
+        
+        if domain_info:
+            return {
+                'valid': True,
+                'url': decoded_url,
+                'lookup_result': {
+                    'found': True,
+                    'hostname': domain_info['hostname'],
+                    'status': domain_info['status'],
+                    'description': domain_info['description'],
+                    'last_updated': domain_info['last_updated']
+                }
+            }
+        else:
+            return {
+                'valid': True,
+                'url': decoded_url,
+                'lookup_result': {
+                    'found': False,
+                    'hostname': hostname,
+                    'status': 'unknown',
+                    'message': 'Domain not found in database'
+                }
+            }
         
     except HTTPException:
         raise

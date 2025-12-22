@@ -7,10 +7,14 @@ import warnings
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi.testclient import TestClient
-from main import app, sanitize_url, decode_url_parts, validate_url_regex
+from main import app, sanitize_url, decode_url_parts, validate_url_regex, init_database
+import asyncio
 
 # Filter out the httpx deprecation warning (false positive for ASGI apps)
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="httpx")
+
+# Initialize database before tests
+asyncio.run(init_database())
 
 client = TestClient(app)
 
@@ -143,6 +147,47 @@ class TestCheckUrlEndpoint:
         response = client.get("/urlinfo/1/example.com/api/v1/users/123")
         assert response.status_code == 200
         assert response.json()['valid'] == True
+
+
+class TestDatabaseLookup:
+    """Test database lookup functionality"""
+    
+    def test_lookup_known_safe_domain(self):
+        response = client.get("/urlinfo/1/example.com/path")
+        assert response.status_code == 200
+        data = response.json()
+        assert data['valid'] == True
+        assert data['lookup_result']['found'] == True
+        assert data['lookup_result']['status'] == 'safe'
+    
+    def test_lookup_malicious_domain(self):
+        response = client.get("/urlinfo/1/malicious-site.com/download")
+        assert response.status_code == 200
+        data = response.json()
+        assert data['lookup_result']['found'] == True
+        assert data['lookup_result']['status'] == 'malicious'
+    
+    def test_lookup_phishing_domain(self):
+        response = client.get("/urlinfo/1/phishing-bank.com")
+        assert response.status_code == 200
+        data = response.json()
+        assert data['lookup_result']['found'] == True
+        assert data['lookup_result']['status'] == 'phishing'
+    
+    def test_lookup_blacklisted_domain(self):
+        response = client.get("/urlinfo/1/spam-domain.net")
+        assert response.status_code == 200
+        data = response.json()
+        assert data['lookup_result']['found'] == True
+        assert data['lookup_result']['status'] == 'blacklisted'
+    
+    def test_lookup_unknown_domain(self):
+        response = client.get("/urlinfo/1/unknown-domain-xyz.com/path")
+        assert response.status_code == 200
+        data = response.json()
+        assert data['valid'] == True
+        assert data['lookup_result']['found'] == False
+        assert data['lookup_result']['status'] == 'unknown'
 
 
 class TestHealthEndpoint:
