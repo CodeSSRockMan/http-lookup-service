@@ -1,6 +1,6 @@
 // Dashboard JavaScript for statistics and monitoring
 
-let startTime = Date.now();
+let serverUptimeSeconds = 0;
 let checkHistory = [];
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -16,8 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadRecentChecks();
     }, 10000);
 
-    // Update uptime every second
-    setInterval(updateUptime, 1000);
+    // Update uptime display every second
+    setInterval(updateUptimeDisplay, 1000);
 });
 
 async function loadServerStatus() {
@@ -29,6 +29,11 @@ async function loadServerStatus() {
         if (data.status === 'healthy') {
             statusElement.textContent = '✅ Healthy';
             statusElement.style.color = 'var(--success-color)';
+            
+            // Update server uptime from the response
+            if (data.uptime_seconds !== undefined) {
+                serverUptimeSeconds = data.uptime_seconds;
+            }
         } else {
             statusElement.textContent = '❌ Unhealthy';
             statusElement.style.color = 'var(--danger-color)';
@@ -93,9 +98,11 @@ async function loadRecentChecks() {
     }
 }
 
-function updateUptime() {
-    const uptime = Date.now() - startTime;
-    const seconds = Math.floor(uptime / 1000);
+function updateUptimeDisplay() {
+    // Increment local counter by 1 second
+    serverUptimeSeconds += 1;
+    
+    const seconds = serverUptimeSeconds;
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);

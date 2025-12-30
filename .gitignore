@@ -71,3 +71,6 @@ Thumbs.db
 *.bak
 *.swp
 *~
+
+# Server PID file
+.server.pid

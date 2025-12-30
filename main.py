@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 # Database path from config
 DB_PATH = os.path.join(os.path.dirname(__file__), config['database']['path'])
 
+# Server startup time for real uptime tracking
+SERVER_START_TIME = None
+
 
 async def init_database():
     """Initialize the database with schema"""
@@ -45,6 +48,8 @@ async def init_database():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown events"""
+    global SERVER_START_TIME
+    SERVER_START_TIME = datetime.now()
     logger.info("Starting HTTP Lookup Service...")
     await init_database()
     logger.info(f"Server configuration: {config['server']}")
@@ -474,8 +479,16 @@ async def get_recent_checks():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {'status': 'healthy'}
+    """Health check endpoint with real uptime"""
+    uptime_seconds = 0
+    if SERVER_START_TIME:
+        uptime_seconds = int((datetime.now() - SERVER_START_TIME).total_seconds())
+    
+    return {
+        'status': 'healthy',
+        'uptime_seconds': uptime_seconds,
+        'start_time': SERVER_START_TIME.isoformat() if SERVER_START_TIME else None
+    }
 
 
 if __name__ == '__main__':

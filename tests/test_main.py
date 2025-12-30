@@ -229,4 +229,9 @@ class TestHealthEndpoint:
     def test_health_check(self):
         response = client.get("/health")
         assert response.status_code == 200
-        assert response.json() == {'status': 'healthy'}
+        data = response.json()
+        assert data['status'] == 'healthy'
+        assert 'uptime_seconds' in data
+        assert 'start_time' in data
+        assert isinstance(data['uptime_seconds'], int)
+        assert data['uptime_seconds'] >= 0
