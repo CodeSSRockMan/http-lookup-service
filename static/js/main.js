@@ -171,4 +171,13 @@ document.addEventListener('DOMContentLoaded', () => {
             form.dispatchEvent(new Event('submit'));
         }
     });
+
+    // Handle test prompt clicks
+    document.querySelectorAll('.test-prompt').forEach(button => {
+        button.addEventListener('click', () => {
+            const url = button.getAttribute('data-url');
+            urlInput.value = url;
+            form.dispatchEvent(new Event('submit'));
+        });
+    });
 });

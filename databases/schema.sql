@@ -53,4 +53,14 @@ INSERT OR IGNORE INTO malicious_queries (pattern, pattern_type, threat_type, des
     ('eval(', 'query_param', 'command_injection', 'JavaScript eval injection'),
     ('/wp-admin/install.php', 'path', 'malware', 'WordPress vulnerability scan'),
     ('/shell.php', 'path', 'malware', 'Web shell upload'),
-    ('| cat /etc/passwd', 'query_param', 'command_injection', 'Command injection with pipe');
+    ('| cat /etc/passwd', 'query_param', 'command_injection', 'Command injection with pipe'),
+    (''' OR 1=1''', 'query_param', 'sql_injection', 'SQL injection attempt'),
+    (''' OR ''1''=''1', 'query_param', 'sql_injection', 'SQL injection boolean bypass'),
+    ('UNION SELECT', 'query_param', 'sql_injection', 'SQL UNION injection'),
+    ('--', 'query_param', 'sql_injection', 'SQL comment injection'),
+    ('<iframe>', 'query_param', 'xss', 'XSS iframe injection'),
+    ('onerror=', 'query_param', 'xss', 'XSS event handler injection'),
+    ('..\\', 'path', 'path_traversal', 'Windows path traversal'),
+    ('%2e%2e%2f', 'path', 'path_traversal', 'URL-encoded path traversal'),
+    ('${', 'query_param', 'command_injection', 'Template injection');
+

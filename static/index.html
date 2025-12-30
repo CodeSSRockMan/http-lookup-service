@@ -34,7 +34,15 @@
                         </button>
                     </div>
                     <div class="search-hints">
-                        <p>💡 <strong>Examples:</strong> example.com | malicious-site.com | evil-download.org/path</p>
+                        <p>💡 <strong>Try these examples:</strong></p>
+                    </div>
+                    <div class="test-prompts">
+                        <button type="button" class="test-prompt" data-url="example.com">✅ Safe Domain</button>
+                        <button type="button" class="test-prompt" data-url="malicious-site.com">⚠️ Malicious Domain</button>
+                        <button type="button" class="test-prompt" data-url="example.com/search?q=<script>alert(1)</script>">🔴 XSS Attack</button>
+                        <button type="button" class="test-prompt" data-url="example.com/page?id=' OR 1=1--">🔴 SQL Injection</button>
+                        <button type="button" class="test-prompt" data-url="example.com/files/../../etc/passwd">🔴 Path Traversal</button>
+                        <button type="button" class="test-prompt" data-url="phishing-bank.scam">🎣 Phishing Domain</button>
                     </div>
                 </form>
             </div>
