@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeCharts() {
-    // RPS Chart
+    // RPS Chart with dynamic scaling
     const rpsCtx = document.getElementById('rpsChart').getContext('2d');
     rpsChart = new Chart(rpsCtx, {
         type: 'line',
@@ -47,8 +47,11 @@ function initializeCharts() {
             scales: {
                 y: { 
                     beginAtZero: true,
-                    suggestedMin: 0,
-                    suggestedMax: 150
+                    ticks: {
+                        callback: function(value) {
+                            return value.toFixed(1);
+                        }
+                    }
                 },
                 x: { display: false }
             },
@@ -59,7 +62,7 @@ function initializeCharts() {
         }
     });
 
-    // CPU Chart
+    // CPU Chart with fixed 0-100% range
     const cpuCtx = document.getElementById('cpuChart').getContext('2d');
     cpuChart = new Chart(cpuCtx, {
         type: 'line',

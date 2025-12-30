@@ -505,10 +505,12 @@ async def get_recent_checks():
 @app.get("/api/metrics")
 async def get_metrics():
     """Get real-time metrics for graphing"""
-    # Calculate requests per second
+    # Calculate requests per second over last 1 second (not time span)
     now = time.time()
-    recent_requests = [ts for ts in request_timestamps if now - ts < 10]  # Last 10 seconds
-    rps = len(recent_requests) / 10 if recent_requests else 0
+    
+    # Count requests in the last 1 second only
+    requests_last_second = len([ts for ts in request_timestamps if now - ts <= 1.0])
+    rps = requests_last_second  # This is already requests per second
     
     # Get CPU usage
     cpu_percent = psutil.cpu_percent(interval=0.1)
