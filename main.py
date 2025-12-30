@@ -85,8 +85,11 @@ metrics_history = {
     'response_times': []
 }
 
-# Track last 100 requests for RPS calculation
-request_timestamps = deque(maxlen=100)
+# Track requests by second for accurate RPS
+# Key: second timestamp (int), Value: count of requests in that second
+requests_by_second = {}
+request_timestamps = deque(maxlen=1000)  # Keep more history for accuracy
+
 
 
 async def lookup_domain(hostname):
@@ -264,7 +267,17 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
         request: FastAPI Request object to get query string
     """
     # Track request timestamp for metrics
-    request_timestamps.append(time.time())
+    now = time.time()
+    request_timestamps.append(now)
+    
+    # Track requests by second for RPS calculation
+    second = int(now)
+    requests_by_second[second] = requests_by_second.get(second, 0) + 1
+    
+    # Clean up old entries (keep only last 2 minutes)
+    old_seconds = [s for s in requests_by_second if now - s > 120]
+    for s in old_seconds:
+        del requests_by_second[s]
     
     try:
         # Get query string if present
@@ -423,10 +436,8 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
         })
         stats['recent_checks'] = stats['recent_checks'][:10]
         
-        # Track request timestamp for RPS calculation
-        request_timestamps.append(time.time())
-        
-        # Don't log metrics here - let the /api/metrics endpoint handle it
+        # Metrics are tracked at the beginning of the function
+
 
         
         return result
@@ -505,34 +516,48 @@ async def get_recent_checks():
 @app.get("/api/metrics")
 async def get_metrics():
     """Get real-time metrics for graphing"""
-    # Calculate requests per second over last 1 second (not time span)
     now = time.time()
-    
-    # Count requests in the last 1 second only
-    requests_last_second = len([ts for ts in request_timestamps if now - ts <= 1.0])
-    rps = requests_last_second  # This is already requests per second
+    current_second = int(now)
     
     # Get CPU usage
     cpu_percent = psutil.cpu_percent(interval=0.1)
     
-    # Keep only last 60 data points (1 minute at 1s intervals)
-    if len(metrics_history['timestamps']) >= 60:
-        metrics_history['timestamps'].pop(0)
-        metrics_history['requests_per_second'].pop(0)
+    # Build a complete history from requests_by_second
+    # Get last 60 seconds of data
+    history_timestamps = []
+    history_rps = []
+    history_cpu = []
+    
+    for i in range(60):
+        second = current_second - (59 - i)
+        history_timestamps.append(float(second))
+        history_rps.append(requests_by_second.get(second, 0))
+        # CPU data we don't have historically, so use current for now
+        history_cpu.append(round(cpu_percent, 1) if i == 59 else 0)
+    
+    # Store the current CPU for future reference
+    metrics_history['cpu_usage'].append(round(cpu_percent, 1))
+    if len(metrics_history['cpu_usage']) > 60:
         metrics_history['cpu_usage'].pop(0)
     
-    # Add current metrics
-    metrics_history['timestamps'].append(now)
-    metrics_history['requests_per_second'].append(round(rps, 2))
-    metrics_history['cpu_usage'].append(round(cpu_percent, 1))
+    # Use stored CPU values if available
+    if len(metrics_history['cpu_usage']) > 0:
+        cpu_len = len(metrics_history['cpu_usage'])
+        for i in range(min(60, cpu_len)):
+            history_cpu[60 - cpu_len + i] = metrics_history['cpu_usage'][i]
     
     return {
         'current': {
-            'rps': round(rps, 2),
+            'rps': requests_by_second.get(current_second, 0),
             'cpu': round(cpu_percent, 1),
             'total_requests': len(request_timestamps)
         },
-        'history': metrics_history
+        'history': {
+            'timestamps': history_timestamps,
+            'requests_per_second': history_rps,
+            'cpu_usage': history_cpu,
+            'response_times': []
+        }
     }
 
 
