@@ -25,19 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeCharts() {
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        scales: {
-            y: { beginAtZero: true },
-            x: { display: false }
-        },
-        plugins: {
-            legend: { display: false }
-        }
-    };
-
     // RPS Chart
     const rpsCtx = document.getElementById('rpsChart').getContext('2d');
     rpsChart = new Chart(rpsCtx, {
@@ -53,7 +40,23 @@ function initializeCharts() {
                 tension: 0.4
             }]
         },
-        options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: true, text: 'Requests Per Second' }}}
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    suggestedMin: 0,
+                    suggestedMax: 150
+                },
+                x: { display: false }
+            },
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'Requests Per Second' }
+            }
+        }
     });
 
     // CPU Chart
@@ -71,7 +74,28 @@ function initializeCharts() {
                 tension: 0.4
             }]
         },
-        options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: true, text: 'CPU Usage (%)' }}}
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    min: 0,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                },
+                x: { display: false }
+            },
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'CPU Usage (%)' }
+            }
+        }
     });
 }
 
