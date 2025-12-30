@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTTP Lookup Service</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 HTTP Lookup Service</h1>
+            <p class="subtitle">Check URLs for security threats and domain reputation</p>
+            <nav>
+                <a href="/dashboard" class="nav-link">📊 Dashboard</a>
+                <a href="/docs" class="nav-link">📖 API Docs</a>
+            </nav>
+        </header>
+
+        <main>
+            <div class="search-container">
+                <form id="urlCheckForm">
+                    <div class="search-box">
+                        <input 
+                            type="text" 
+                            id="urlInput" 
+                            placeholder="Enter URL to check (e.g., example.com/path?query=value)"
+                            autocomplete="off"
+                            required
+                        >
+                        <button type="submit" id="checkButton">
+                            <span class="button-text">Check URL</span>
+                            <span class="loading-spinner" style="display: none;">⏳</span>
+                        </button>
+                    </div>
+                    <div class="search-hints">
+                        <p>💡 <strong>Examples:</strong> example.com | malicious-site.com | evil-download.org/path</p>
+                    </div>
+                </form>
+            </div>
+
+            <div id="results" class="results-container" style="display: none;">
+                <!-- Results will be dynamically inserted here -->
+            </div>
+        </main>
+
+        <footer>
+            <p>Powered by FastAPI • <a href="https://github.com/your-repo" target="_blank">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

@@ -43,3 +43,20 @@ performance:
   # Enable response caching (future enhancement)
   enable_cache: false
   cache_ttl: 300  # seconds
+
+# Frontend Configuration
+frontend:
+  # Enable/disable frontend web interface
+  enabled: true
+  
+  # Static files directory
+  static_dir: "static"
+  
+  # Endpoints
+  endpoints:
+    home: "/"
+    dashboard: "/dashboard"
+    api_docs: "/docs"
+    health: "/health"
+    stats: "/api/stats"
+    recent_checks: "/api/recent-checks"

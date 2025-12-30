@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - HTTP Lookup Service</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Dashboard</h1>
+            <p class="subtitle">System statistics and recent activity</p>
+            <nav>
+                <a href="/" class="nav-link">🔍 Search</a>
+                <a href="/docs" class="nav-link">📖 API Docs</a>
+            </nav>
+        </header>
+
+        <main class="dashboard">
+            <!-- Server Status -->
+            <section class="card">
+                <h2>🖥️ Server Status</h2>
+                <div class="status-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Status</span>
+                        <span id="serverStatus" class="stat-value loading">⏳ Loading...</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Uptime</span>
+                        <span id="uptime" class="stat-value">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Version</span>
+                        <span id="version" class="stat-value">1.0.0</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Statistics -->
+            <section class="card">
+                <h2>📈 Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-number" id="totalChecks">0</div>
+                        <div class="stat-description">Total Checks</div>
+                    </div>
+                    <div class="stat-box safe">
+                        <div class="stat-number" id="safeUrls">0</div>
+                        <div class="stat-description">Safe URLs</div>
+                    </div>
+                    <div class="stat-box warning">
+                        <div class="stat-number" id="threatsDetected">0</div>
+                        <div class="stat-description">Threats Detected</div>
+                    </div>
+                    <div class="stat-box info">
+                        <div class="stat-number" id="unknownDomains">0</div>
+                        <div class="stat-description">Unknown Domains</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Database Info -->
+            <section class="card">
+                <h2>💾 Database</h2>
+                <div class="status-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Known Domains</span>
+                        <span id="knownDomains" class="stat-value">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Malicious Patterns</span>
+                        <span id="maliciousPatterns" class="stat-value">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Pattern Matching</span>
+                        <span id="patternMatching" class="stat-value badge">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Domain Lookup</span>
+                        <span id="domainLookup" class="stat-value badge">-</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Checks -->
+            <section class="card">
+                <h2>🕐 Recent Checks</h2>
+                <div id="recentChecks" class="recent-checks">
+                    <p class="loading">⏳ Loading recent checks...</p>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Powered by FastAPI • <a href="https://github.com/your-repo" target="_blank">GitHub</a></p>
+        </footer>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

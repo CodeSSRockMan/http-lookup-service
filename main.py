@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Path, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from urllib.parse import unquote, unquote_plus, urlparse
 from contextlib import asynccontextmanager
 import re
@@ -7,6 +8,7 @@ import aiosqlite
 import os
 import yaml
 import logging
+from datetime import datetime
 
 # Load configuration
 def load_config():
@@ -50,6 +52,20 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down HTTP Lookup Service...")
 
 app = FastAPI(title="HTTP Lookup Service", version="1.0.0", lifespan=lifespan)
+
+# Mount static files if frontend is enabled
+if config.get('frontend', {}).get('enabled', True):
+    static_dir = os.path.join(os.path.dirname(__file__), config['frontend']['static_dir'])
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# In-memory statistics storage (replace with database in production)
+stats = {
+    'total_checks': 0,
+    'safe_urls': 0,
+    'threats_detected': 0,
+    'unknown_domains': 0,
+    'recent_checks': []
+}
 
 
 async def lookup_domain(hostname):
@@ -332,6 +348,23 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
                 'found': False
             }
         
+        # Update statistics
+        stats['total_checks'] += 1
+        if malicious_info:
+            stats['threats_detected'] += 1
+        elif domain_info and domain_info['status'] == 'safe':
+            stats['safe_urls'] += 1
+        elif not domain_info:
+            stats['unknown_domains'] += 1
+        
+        # Store recent check (keep last 10)
+        stats['recent_checks'].insert(0, {
+            'url': sanitized_url,
+            'status': 'threat' if malicious_info else (domain_info['status'] if domain_info else 'unknown'),
+            'timestamp': datetime.now().isoformat()
+        })
+        stats['recent_checks'] = stats['recent_checks'][:10]
+        
         return result
         
     except HTTPException:
@@ -344,6 +377,65 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
                 'message': str(e)
             }
         )
+
+
+# Frontend Routes
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def home():
+    """Serve the main search page"""
+    if not config.get('frontend', {}).get('enabled', True):
+        return JSONResponse({"message": "Frontend is disabled"}, status_code=404)
+    
+    static_dir = os.path.join(os.path.dirname(__file__), config['frontend']['static_dir'])
+    index_path = os.path.join(static_dir, 'index.html')
+    return FileResponse(index_path)
+
+
+@app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
+async def dashboard():
+    """Serve the dashboard page"""
+    if not config.get('frontend', {}).get('enabled', True):
+        return JSONResponse({"message": "Frontend is disabled"}, status_code=404)
+    
+    static_dir = os.path.join(os.path.dirname(__file__), config['frontend']['static_dir'])
+    dashboard_path = os.path.join(static_dir, 'dashboard.html')
+    return FileResponse(dashboard_path)
+
+
+# API Endpoints for Dashboard
+@app.get("/api/stats")
+async def get_stats():
+    """Get service statistics"""
+    # Get database counts
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Count known domains
+        async with db.execute("SELECT COUNT(*) FROM domains") as cursor:
+            row = await cursor.fetchone()
+            known_domains = row[0] if row else 0
+        
+        # Count malicious patterns
+        async with db.execute("SELECT COUNT(*) FROM malicious_queries") as cursor:
+            row = await cursor.fetchone()
+            malicious_patterns = row[0] if row else 0
+    
+    return {
+        'total_checks': stats['total_checks'],
+        'safe_urls': stats['safe_urls'],
+        'threats_detected': stats['threats_detected'],
+        'unknown_domains': stats['unknown_domains'],
+        'known_domains': known_domains,
+        'malicious_patterns': malicious_patterns,
+        'pattern_matching_enabled': config['security']['enable_pattern_matching'],
+        'domain_lookup_enabled': config['security']['enable_domain_lookup']
+    }
+
+
+@app.get("/api/recent-checks")
+async def get_recent_checks():
+    """Get recent URL checks"""
+    return {
+        'checks': stats['recent_checks']
+    }
 
 
 @app.get("/health")
