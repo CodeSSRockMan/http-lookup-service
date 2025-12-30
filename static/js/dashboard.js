@@ -1,4 +1,4 @@
-// Dashboard JavaScript with real-time graphs and stress testing
+// Dashboard JavaScript with real-time graphs and monitoring
 
 let serverUptimeSeconds = 0;
 let rpsChart, cpuChart;
@@ -206,42 +206,7 @@ async function loadMetrics() {
     }
 }
 
-async function runStressTest(numRequests) {
-    const resultDiv = document.getElementById('stressTestResult');
-    resultDiv.innerHTML = `<p style="color: #2196F3;">⏳ Running ${numRequests.toLocaleString()} requests...</p>`;
-    
-    const buttons = document.querySelectorAll('.btn-test');
-    buttons.forEach(btn => btn.disabled = true);
-
-    try {
-        const startTime = Date.now();
-        const response = await fetch('/api/stress-test', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ num_requests: numRequests })
-        });
-        
-        const data = await response.json();
-        const duration = Date.now() - startTime;
-
-        resultDiv.innerHTML = `
-            <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-top: 10px;">
-                <p><strong>✅ Test Complete!</strong></p>
-                <p>Requests: ${data.num_requests.toLocaleString()}</p>
-                <p>Duration: ${data.duration_seconds}s</p>
-                <p>Throughput: ${data.requests_per_second.toLocaleString()} req/s</p>
-                <p>Success: ${data.success} | Errors: ${data.errors}</p>
-            </div>
-        `;
-    } catch (error) {
-        resultDiv.innerHTML = `<p style="color: #f44336;">❌ Error: ${error.message}</p>`;
-    } finally {
-        buttons.forEach(btn => btn.disabled = false);
-    }
-}
-
 function updateUptimeDisplay() {
-    // Increment local counter by 1 second
     serverUptimeSeconds += 1;
     
     const seconds = serverUptimeSeconds;

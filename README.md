@@ -44,14 +44,33 @@ python main.py
 
 ## Web Interface
 
-The service includes a modern web interface:
-
-- **Search Page** (`/`) - Google-like URL checker with real-time results
-## Web Interface
-
 - **Search Page** (`/`) - URL checker with test prompts
-- **Dashboard** (`/dashboard`) - Real-time stats, graphs, and stress testing
+- **Dashboard** (`/dashboard`) - Real-time RPS/CPU graphs and metrics
 - **API Docs** (`/docs`) - Interactive API documentation
+
+## Load Testing
+
+Use the external load testing script to benchmark performance:
+
+```bash
+# Run 1000 requests with 50 concurrent connections (default)
+./load_test.sh
+
+# High load test with more concurrency
+NUM_REQUESTS=5000 CONCURRENCY=100 ./load_test.sh
+
+# Custom settings
+NUM_REQUESTS=10000 CONCURRENCY=200 BASE_URL=http://localhost:8000 ./load_test.sh
+```
+
+**Tip:** Install `wrk` for more advanced load testing:
+
+```bash
+brew install wrk  # macOS
+# Then run ./load_test.sh to use wrk automatically
+```
+
+The script provides detailed metrics including RPS, response times, and success rates.
 
 ## Documentation
 

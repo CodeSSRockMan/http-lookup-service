@@ -561,68 +561,6 @@ async def get_metrics():
     }
 
 
-@app.post("/api/stress-test")
-async def stress_test(request: Request):
-    """Run a stress test with specified number of requests"""
-    import httpx
-    
-    body = await request.json()
-    num_requests = body.get('num_requests', 100)
-    
-    # Limit to 5000 requests
-    if num_requests > 5000:
-        raise HTTPException(status_code=400, detail="Maximum 5000 requests allowed")
-    
-    if num_requests < 1:
-        raise HTTPException(status_code=400, detail="Minimum 1 request required")
-    
-    # Test URLs to check
-    test_urls = [
-        "example.com/test",
-        "malicious-site.com/download",
-        "google.com/search?q=test",
-        "phishing-bank.com/login",
-        "safe-domain.org/page"
-    ]
-    
-    start_time = time.time()
-    success_count = 0
-    error_count = 0
-    
-    # Get the base URL from the request
-    base_url = str(request.base_url).rstrip('/')
-    
-    # Run requests concurrently using httpx
-    async def make_request(test_url):
-        nonlocal success_count, error_count
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                # Make actual API call to our endpoint
-                response = await client.get(f"{base_url}/urlinfo/1/{test_url}")
-                if response.status_code in [200, 400]:  # 400 is also valid (validation errors)
-                    success_count += 1
-                else:
-                    error_count += 1
-        except Exception:
-            error_count += 1
-    
-    # Execute all requests concurrently
-    tasks = [make_request(test_urls[i % len(test_urls)]) for i in range(num_requests)]
-    await asyncio.gather(*tasks)
-    
-    end_time = time.time()
-    duration = end_time - start_time
-    
-    return {
-        'completed': True,
-        'num_requests': num_requests,
-        'duration_seconds': round(duration, 3),
-        'requests_per_second': round(num_requests / duration if duration > 0 else 0, 2),
-        'success': success_count,
-        'errors': error_count
-    }
-
-
 @app.get("/health")
 async def health_check():
     """Health check endpoint with real uptime"""

@@ -11,7 +11,7 @@
     <div class="container">
         <header>
             <h1>📊 Dashboard</h1>
-            <p class="subtitle">Real-time monitoring and stress testing</p>
+            <p class="subtitle">Real-time monitoring and metrics</p>
             <nav>
                 <a href="/" class="nav-link">🔍 Search</a>
                 <a href="/docs" class="nav-link">📖 API Docs</a>
@@ -53,21 +53,10 @@
                 </div>
             </section>
 
-            <!-- Stress Test -->
-            <section class="card">
-                <h2>⚡ Stress Test</h2>
-                <p>Test server performance with concurrent requests</p>
-                <div class="stress-test-buttons">
-                    <button class="btn btn-test" onclick="runStressTest(100)">100 Requests</button>
-                    <button class="btn btn-test" onclick="runStressTest(1000)">1,000 Requests</button>
-                    <button class="btn btn-test" onclick="runStressTest(5000)">5,000 Requests</button>
-                </div>
-                <div id="stressTestResult" class="stress-result"></div>
-            </section>
 
             <!-- Statistics -->
             <section class="card">
-                <h2>� Statistics</h2>
+                <h2>📊 Statistics</h2>
                 <div class="stats-grid">
                     <div class="stat-box">
                         <div class="stat-number" id="totalChecks">0</div>
