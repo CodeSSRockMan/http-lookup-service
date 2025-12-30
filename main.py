@@ -275,6 +275,40 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
         
         # SECURITY PIPELINE ORDER (CRITICAL FOR PREVENTING BYPASS ATTACKS):
         # =====================================================================
+        
+        # STEP 0: PRE-CHECK for path traversal on raw URL
+        #         WHY: URL parsing normalizes ../ which would hide path traversal attacks
+        #         Check the reconstructed URL BEFORE decoding/normalization
+        if '../' in reconstructed_url or '..\\' in reconstructed_url or '%2e%2e' in reconstructed_url.lower():
+            # This is a path traversal attempt
+            malicious_info = {
+                'pattern': '../',
+                'pattern_type': 'path',
+                'threat_type': 'path_traversal',
+                'description': 'Directory traversal pattern detected'
+            }
+            # Still process the URL but flag it immediately
+            decoded_url = decode_url_parts(reconstructed_url)
+            sanitized_url = sanitize_url(decoded_url)
+            
+            return {
+                'valid': False,
+                'url': reconstructed_url,
+                'lookup_result': {
+                    'found': False,
+                    'hostname': 'N/A',
+                    'status': 'blocked',
+                    'message': 'Path traversal attack detected'
+                },
+                'malicious_patterns': {
+                    'found': True,
+                    'pattern': malicious_info['pattern'],
+                    'pattern_type': malicious_info['pattern_type'],
+                    'threat_type': malicious_info['threat_type'],
+                    'description': malicious_info['description']
+                }
+            }
+        
         # STEP 1: DECODE FIRST - Convert URL-encoded chars to actual values
         #         WHY: Attackers can encode malicious chars like %27 (') or %3C (<)
         #              to bypass regex/pattern matching. MUST decode before validation.

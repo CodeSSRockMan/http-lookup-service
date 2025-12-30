@@ -41,7 +41,7 @@
                         <button type="button" class="test-prompt" data-url="malicious-site.com">⚠️ Malicious Domain</button>
                         <button type="button" class="test-prompt" data-url="example.com/search?q=<script>alert(1)</script>">🔴 XSS Attack</button>
                         <button type="button" class="test-prompt" data-url="example.com/page?id=' OR 1=1--">🔴 SQL Injection</button>
-                        <button type="button" class="test-prompt" data-url="example.com/files/../../etc/passwd">🔴 Path Traversal</button>
+                        <button type="button" class="test-prompt" data-url="example.com/files/%2e%2e%2f%2e%2e%2fetc%2fpasswd">🔴 Path Traversal</button>
                         <button type="button" class="test-prompt" data-url="phishing-bank.scam">🎣 Phishing Domain</button>
                     </div>
                 </form>

@@ -38,6 +38,7 @@ INSERT OR IGNORE INTO domains (hostname, status, description) VALUES
     ('github.com', 'safe', 'GitHub code repository'),
     ('malicious-site.com', 'malicious', 'Known malware distribution site'),
     ('phishing-bank.com', 'phishing', 'Fake banking site'),
+    ('phishing-bank.scam', 'phishing', 'Phishing scam domain'),
     ('spam-domain.net', 'blacklisted', 'Spam and advertising site'),
     ('evil-download.org', 'malicious', 'Malware download site'),
     ('fake-paypal.com', 'phishing', 'PayPal phishing attempt');
