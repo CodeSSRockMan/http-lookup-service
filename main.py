@@ -12,6 +12,8 @@ from datetime import datetime
 import time
 import psutil
 from collections import deque
+import asyncio
+import httpx
 
 # Load configuration
 def load_config():
@@ -424,23 +426,8 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
         # Track request timestamp for RPS calculation
         request_timestamps.append(time.time())
         
-        # Calculate requests per second (RPS) - simple moving average
-        if len(request_timestamps) == request_timestamps.maxlen:
-            # Only calculate RPS if we have enough data points
-            time_window = request_timestamps[-1] - request_timestamps[0]
-            rps = len(request_timestamps) / time_window if time_window > 0 else 0
-            
-            # Log RPS metric
-            metrics_history['timestamps'].append(datetime.now().isoformat())
-            metrics_history['requests_per_second'].append(rps)
-            
-            # Log CPU usage metric
-            cpu_usage = psutil.cpu_percent(interval=1)
-            metrics_history['cpu_usage'].append(cpu_usage)
-            
-            # Log response time metric (approximate)
-            response_time = (time.time() - request_timestamps[-1]) * 1000  # Convert to ms
-            metrics_history['response_times'].append(response_time)
+        # Don't log metrics here - let the /api/metrics endpoint handle it
+
         
         return result
         
@@ -550,8 +537,7 @@ async def get_metrics():
 @app.post("/api/stress-test")
 async def stress_test(request: Request):
     """Run a stress test with specified number of requests"""
-    import asyncio
-    from concurrent.futures import ThreadPoolExecutor
+    import httpx
     
     body = await request.json()
     num_requests = body.get('num_requests', 100)
@@ -563,7 +549,7 @@ async def stress_test(request: Request):
     if num_requests < 1:
         raise HTTPException(status_code=400, detail="Minimum 1 request required")
     
-    # Test URLs
+    # Test URLs to check
     test_urls = [
         "example.com/test",
         "malicious-site.com/download",
@@ -576,14 +562,20 @@ async def stress_test(request: Request):
     success_count = 0
     error_count = 0
     
-    # Run requests concurrently
-    async def make_request(url):
+    # Get the base URL from the request
+    base_url = str(request.base_url).rstrip('/')
+    
+    # Run requests concurrently using httpx
+    async def make_request(test_url):
         nonlocal success_count, error_count
         try:
-            request_timestamps.append(time.time())
-            # Simulate URL check without actually calling the endpoint (avoid recursion)
-            await asyncio.sleep(0.001)  # Minimal delay
-            success_count += 1
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                # Make actual API call to our endpoint
+                response = await client.get(f"{base_url}/urlinfo/1/{test_url}")
+                if response.status_code in [200, 400]:  # 400 is also valid (validation errors)
+                    success_count += 1
+                else:
+                    error_count += 1
         except Exception:
             error_count += 1
     
