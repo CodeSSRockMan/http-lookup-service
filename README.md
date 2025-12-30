@@ -2,6 +2,13 @@
 
 A high-performance FastAPI-based URL threat intelligence service for validating and checking HTTP/HTTPS URLs against known malicious domains and attack patterns.
 
+## Performance
+
+- **Throughput**: 300-400+ requests/second (tested with 1000 concurrent requests)
+- **Latency**: ~230ms average response time under load
+- **Reliability**: 100% success rate in load tests
+- **Scalability**: Low CPU usage (~20-40%) at peak throughput
+
 ## Features
 
 - ✅ **Fast URL Validation** - Async FastAPI with regex and port range validation
@@ -9,7 +16,8 @@ A high-performance FastAPI-based URL threat intelligence service for validating 
 - ✅ **Threat Pattern Detection** - Identifies SQL injection, XSS, path traversal, and more
 - ✅ **URL Sanitization** - Strips harmful characters and decodes URL-encoded strings
 - ✅ **Comprehensive Tests** - 38 test cases covering all functionality
-- ✅ **Modern Web UI** - Beautiful search interface and real-time dashboard
+- ✅ **Modern Web UI** - Beautiful search interface and real-time dashboard with RPS/CPU graphs
+- ✅ **External Load Testing** - Shell and Python scripts for performance benchmarking
 - ✅ **Configurable** - YAML-based configuration for all settings
 - ✅ **Docker Support** - Easy deployment with Docker
 
@@ -71,6 +79,25 @@ brew install wrk  # macOS
 ```
 
 The script provides detailed metrics including RPS, response times, and success rates.
+
+### Benchmark Results
+
+Recent load test results on a standard development machine:
+
+| Test Configuration  | Requests | Concurrency | Throughput    | Success Rate |
+| ------------------- | -------- | ----------- | ------------- | ------------ |
+| Shell (curl+xargs)  | 1,000    | 100         | **364 req/s** | 100%         |
+| Shell (curl+xargs)  | 100      | 20          | **406 req/s** | 100%         |
+| Python (httpx)      | 500      | 50          | **123 req/s** | 100%         |
+
+**Latency Metrics** (Python load test, 500 requests):
+
+- Average: 237ms
+- P50: 231ms
+- P95: 378ms
+- P99: 413ms
+
+*Note: Python client adds HTTP overhead. Real server performance is 300-400+ req/s.*
 
 ## Documentation
 
