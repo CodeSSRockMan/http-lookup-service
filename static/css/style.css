@@ -411,6 +411,52 @@ main {
     border-left-color: var(--info-color);
 }
 
+/* Graph Containers */
+.graph-container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    height: 250px;
+}
+
+.graph-container canvas {
+    max-height: 210px;
+}
+
+/* Stress Test */
+.stress-test-buttons {
+    display: flex;
+    gap: 15px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.btn-test {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-test:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-test:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.stress-result {
+    min-height: 50px;
+}
+
 .stat-number {
     font-size: 2.5em;
     font-weight: 700;

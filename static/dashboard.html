@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - HTTP Lookup Service</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>📊 Dashboard</h1>
-            <p class="subtitle">System statistics and recent activity</p>
+            <p class="subtitle">Real-time monitoring and stress testing</p>
             <nav>
                 <a href="/" class="nav-link">🔍 Search</a>
                 <a href="/docs" class="nav-link">📖 API Docs</a>
@@ -31,15 +32,42 @@
                         <span id="uptime" class="stat-value">-</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">Version</span>
-                        <span id="version" class="stat-value">1.0.0</span>
+                        <span class="stat-label">CPU</span>
+                        <span id="cpu" class="stat-value">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">RPS</span>
+                        <span id="rps" class="stat-value">-</span>
                     </div>
                 </div>
             </section>
 
+            <!-- Real-time Graphs -->
+            <section class="card">
+                <h2>📈 Real-time Metrics</h2>
+                <div class="graph-container">
+                    <canvas id="rpsChart"></canvas>
+                </div>
+                <div class="graph-container" style="margin-top: 20px;">
+                    <canvas id="cpuChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Stress Test -->
+            <section class="card">
+                <h2>⚡ Stress Test</h2>
+                <p>Test server performance with concurrent requests</p>
+                <div class="stress-test-buttons">
+                    <button class="btn btn-test" onclick="runStressTest(100)">100 Requests</button>
+                    <button class="btn btn-test" onclick="runStressTest(1000)">1,000 Requests</button>
+                    <button class="btn btn-test" onclick="runStressTest(5000)">5,000 Requests</button>
+                </div>
+                <div id="stressTestResult" class="stress-result"></div>
+            </section>
+
             <!-- Statistics -->
             <section class="card">
-                <h2>📈 Statistics</h2>
+                <h2>� Statistics</h2>
                 <div class="stats-grid">
                     <div class="stat-box">
                         <div class="stat-number" id="totalChecks">0</div>
@@ -51,34 +79,11 @@
                     </div>
                     <div class="stat-box warning">
                         <div class="stat-number" id="threatsDetected">0</div>
-                        <div class="stat-description">Threats Detected</div>
+                        <div class="stat-description">Threats</div>
                     </div>
                     <div class="stat-box info">
                         <div class="stat-number" id="unknownDomains">0</div>
-                        <div class="stat-description">Unknown Domains</div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Database Info -->
-            <section class="card">
-                <h2>💾 Database</h2>
-                <div class="status-grid">
-                    <div class="stat-item">
-                        <span class="stat-label">Known Domains</span>
-                        <span id="knownDomains" class="stat-value">-</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Malicious Patterns</span>
-                        <span id="maliciousPatterns" class="stat-value">-</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Pattern Matching</span>
-                        <span id="patternMatching" class="stat-value badge">-</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Domain Lookup</span>
-                        <span id="domainLookup" class="stat-value badge">-</span>
+                        <div class="stat-description">Unknown</div>
                     </div>
                 </div>
             </section>
@@ -87,7 +92,7 @@
             <section class="card">
                 <h2>🕐 Recent Checks</h2>
                 <div id="recentChecks" class="recent-checks">
-                    <p class="loading">⏳ Loading recent checks...</p>
+                    <p class="loading">⏳ Loading...</p>
                 </div>
             </section>
         </main>

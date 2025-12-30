@@ -1,24 +1,79 @@
-// Dashboard JavaScript for statistics and monitoring
+// Dashboard JavaScript with real-time graphs and stress testing
 
 let serverUptimeSeconds = 0;
-let checkHistory = [];
+let rpsChart, cpuChart;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Load initial data
+    initializeCharts();
     loadServerStatus();
     loadStats();
     loadRecentChecks();
+    loadMetrics();
 
-    // Refresh data every 10 seconds
+    // Refresh data
     setInterval(() => {
         loadServerStatus();
         loadStats();
         loadRecentChecks();
     }, 10000);
 
+    // Update metrics and graphs every 2 seconds
+    setInterval(loadMetrics, 2000);
+
     // Update uptime display every second
     setInterval(updateUptimeDisplay, 1000);
 });
+
+function initializeCharts() {
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+            y: { beginAtZero: true },
+            x: { display: false }
+        },
+        plugins: {
+            legend: { display: false }
+        }
+    };
+
+    // RPS Chart
+    const rpsCtx = document.getElementById('rpsChart').getContext('2d');
+    rpsChart = new Chart(rpsCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Requests/Second',
+                data: [],
+                borderColor: '#4CAF50',
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: true, text: 'Requests Per Second' }}}
+    });
+
+    // CPU Chart
+    const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+    cpuChart = new Chart(cpuCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'CPU Usage %',
+                data: [],
+                borderColor: '#2196F3',
+                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: true, text: 'CPU Usage (%)' }}}
+    });
+}
 
 async function loadServerStatus() {
     try {
@@ -95,6 +150,66 @@ async function loadRecentChecks() {
     } catch (error) {
         console.error('Error loading recent checks:', error);
         displayMockRecentChecks();
+    }
+}
+
+async function loadMetrics() {
+    try {
+        const response = await fetch('/api/metrics');
+        const data = await response.json();
+
+        // Update current metrics
+        document.getElementById('cpu').textContent = data.current.cpu + '%';
+        document.getElementById('rps').textContent = data.current.rps.toFixed(1);
+
+        // Update charts with history
+        if (data.history && data.history.timestamps.length > 0) {
+            const labels = data.history.timestamps.map((_, i) => i);
+            
+            rpsChart.data.labels = labels;
+            rpsChart.data.datasets[0].data = data.history.requests_per_second;
+            rpsChart.update('none');
+
+            cpuChart.data.labels = labels;
+            cpuChart.data.datasets[0].data = data.history.cpu_usage;
+            cpuChart.update('none');
+        }
+    } catch (error) {
+        console.error('Error loading metrics:', error);
+    }
+}
+
+async function runStressTest(numRequests) {
+    const resultDiv = document.getElementById('stressTestResult');
+    resultDiv.innerHTML = `<p style="color: #2196F3;">⏳ Running ${numRequests.toLocaleString()} requests...</p>`;
+    
+    const buttons = document.querySelectorAll('.btn-test');
+    buttons.forEach(btn => btn.disabled = true);
+
+    try {
+        const startTime = Date.now();
+        const response = await fetch('/api/stress-test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ num_requests: numRequests })
+        });
+        
+        const data = await response.json();
+        const duration = Date.now() - startTime;
+
+        resultDiv.innerHTML = `
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                <p><strong>✅ Test Complete!</strong></p>
+                <p>Requests: ${data.num_requests.toLocaleString()}</p>
+                <p>Duration: ${data.duration_seconds}s</p>
+                <p>Throughput: ${data.requests_per_second.toLocaleString()} req/s</p>
+                <p>Success: ${data.success} | Errors: ${data.errors}</p>
+            </div>
+        `;
+    } catch (error) {
+        resultDiv.innerHTML = `<p style="color: #f44336;">❌ Error: ${error.message}</p>`;
+    } finally {
+        buttons.forEach(btn => btn.disabled = false);
     }
 }
 

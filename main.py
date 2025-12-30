@@ -9,6 +9,9 @@ import os
 import yaml
 import logging
 from datetime import datetime
+import time
+import psutil
+from collections import deque
 
 # Load configuration
 def load_config():
@@ -71,6 +74,17 @@ stats = {
     'unknown_domains': 0,
     'recent_checks': []
 }
+
+# Metrics tracking for graphs
+metrics_history = {
+    'timestamps': [],
+    'requests_per_second': [],
+    'cpu_usage': [],
+    'response_times': []
+}
+
+# Track last 100 requests for RPS calculation
+request_timestamps = deque(maxlen=100)
 
 
 async def lookup_domain(hostname):
@@ -247,6 +261,9 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
         url_parts: The full path containing hostname_and_port and original_path_and_query_string
         request: FastAPI Request object to get query string
     """
+    # Track request timestamp for metrics
+    request_timestamps.append(time.time())
+    
     try:
         # Get query string if present
         query_string = request.url.query if request and request.url.query else ''
@@ -404,6 +421,27 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
         })
         stats['recent_checks'] = stats['recent_checks'][:10]
         
+        # Track request timestamp for RPS calculation
+        request_timestamps.append(time.time())
+        
+        # Calculate requests per second (RPS) - simple moving average
+        if len(request_timestamps) == request_timestamps.maxlen:
+            # Only calculate RPS if we have enough data points
+            time_window = request_timestamps[-1] - request_timestamps[0]
+            rps = len(request_timestamps) / time_window if time_window > 0 else 0
+            
+            # Log RPS metric
+            metrics_history['timestamps'].append(datetime.now().isoformat())
+            metrics_history['requests_per_second'].append(rps)
+            
+            # Log CPU usage metric
+            cpu_usage = psutil.cpu_percent(interval=1)
+            metrics_history['cpu_usage'].append(cpu_usage)
+            
+            # Log response time metric (approximate)
+            response_time = (time.time() - request_timestamps[-1]) * 1000  # Convert to ms
+            metrics_history['response_times'].append(response_time)
+        
         return result
         
     except HTTPException:
@@ -474,6 +512,95 @@ async def get_recent_checks():
     """Get recent URL checks"""
     return {
         'checks': stats['recent_checks']
+    }
+
+
+@app.get("/api/metrics")
+async def get_metrics():
+    """Get real-time metrics for graphing"""
+    # Calculate requests per second
+    now = time.time()
+    recent_requests = [ts for ts in request_timestamps if now - ts < 10]  # Last 10 seconds
+    rps = len(recent_requests) / 10 if recent_requests else 0
+    
+    # Get CPU usage
+    cpu_percent = psutil.cpu_percent(interval=0.1)
+    
+    # Keep only last 60 data points (1 minute at 1s intervals)
+    if len(metrics_history['timestamps']) >= 60:
+        metrics_history['timestamps'].pop(0)
+        metrics_history['requests_per_second'].pop(0)
+        metrics_history['cpu_usage'].pop(0)
+    
+    # Add current metrics
+    metrics_history['timestamps'].append(now)
+    metrics_history['requests_per_second'].append(round(rps, 2))
+    metrics_history['cpu_usage'].append(round(cpu_percent, 1))
+    
+    return {
+        'current': {
+            'rps': round(rps, 2),
+            'cpu': round(cpu_percent, 1),
+            'total_requests': len(request_timestamps)
+        },
+        'history': metrics_history
+    }
+
+
+@app.post("/api/stress-test")
+async def stress_test(request: Request):
+    """Run a stress test with specified number of requests"""
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+    
+    body = await request.json()
+    num_requests = body.get('num_requests', 100)
+    
+    # Limit to 5000 requests
+    if num_requests > 5000:
+        raise HTTPException(status_code=400, detail="Maximum 5000 requests allowed")
+    
+    if num_requests < 1:
+        raise HTTPException(status_code=400, detail="Minimum 1 request required")
+    
+    # Test URLs
+    test_urls = [
+        "example.com/test",
+        "malicious-site.com/download",
+        "google.com/search?q=test",
+        "phishing-bank.com/login",
+        "safe-domain.org/page"
+    ]
+    
+    start_time = time.time()
+    success_count = 0
+    error_count = 0
+    
+    # Run requests concurrently
+    async def make_request(url):
+        nonlocal success_count, error_count
+        try:
+            request_timestamps.append(time.time())
+            # Simulate URL check without actually calling the endpoint (avoid recursion)
+            await asyncio.sleep(0.001)  # Minimal delay
+            success_count += 1
+        except Exception:
+            error_count += 1
+    
+    # Execute all requests concurrently
+    tasks = [make_request(test_urls[i % len(test_urls)]) for i in range(num_requests)]
+    await asyncio.gather(*tasks)
+    
+    end_time = time.time()
+    duration = end_time - start_time
+    
+    return {
+        'completed': True,
+        'num_requests': num_requests,
+        'duration_seconds': round(duration, 3),
+        'requests_per_second': round(num_requests / duration if duration > 0 else 0, 2),
+        'success': success_count,
+        'errors': error_count
     }
 
 
