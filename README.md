@@ -14,6 +14,25 @@ A high-performance FastAPI-based URL threat intelligence service for validating 
 
 ## Quick Start
 
+### Using the automation scripts (recommended)
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run tests
+./run_tests.sh
+
+# Start the server
+./start_server.sh
+# Press Ctrl+C to stop, or use ./stop_server.sh from another terminal
+
+# Stop the server (from another terminal)
+./stop_server.sh
+```
+
+### Manual start
+
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -65,7 +84,10 @@ curl http://localhost:5000/health
 ## Testing
 
 ```bash
-# Run all tests
+# Run all tests (using automation script)
+./run_tests.sh
+
+# Or run manually
 pytest tests/ -v
 
 # Run with coverage
@@ -75,6 +97,7 @@ pytest tests/ --cov=main
 ## Project Status
 
 Current version includes core URL validation and threat detection. Future enhancements planned:
+
 - Configuration modes (permissive/restrictive)
 - Redis caching layer
 - Load balancer integration
