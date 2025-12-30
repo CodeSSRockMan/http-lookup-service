@@ -365,9 +365,3 @@ The **Decode → Validate → Pattern Match → Sanitize → DB Lookup** order i
 5. **DB lookup** to check domain reputation
 
 Changing this order would create security vulnerabilities that attackers could exploit using URL encoding and other obfuscation techniques.
-
----
-
-**Last Updated:** 2025-01-01  
-**Reviewed By:** Security Team  
-**Next Review:** Q2 2025

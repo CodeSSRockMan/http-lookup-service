@@ -99,9 +99,47 @@ Recent load test results on a standard development machine:
 
 *Note: Python client adds HTTP overhead. Real server performance is 300-400+ req/s.*
 
+## Automation Scripts
+
+Three convenience scripts are provided for development and testing:
+
+### `run_tests.sh` - Run All Tests
+
+```bash
+./run_tests.sh
+```
+
+Runs the complete test suite (38 tests) with colored output and clear success/failure messages.
+
+### `start_server.sh` - Start Server
+
+```bash
+./start_server.sh
+```
+
+Starts the FastAPI server with hot-reload enabled for development. Press `Ctrl+C` to stop gracefully.
+
+Features:
+
+- Auto-reload on code changes
+- Reads config from `config.yaml`
+- Creates PID file for tracking
+- Graceful shutdown handling
+
+### `stop_server.sh` - Stop Server
+
+```bash
+./stop_server.sh
+```
+
+Stops a running server from another terminal. Uses the PID file to gracefully terminate the process.
+
 ## Documentation
 
-See [docs/](docs/) for API reference, configuration, and security details.
+- **[DATABASE.md](docs/DATABASE.md)** - Database schema and structure
+- **[SECURITY.md](docs/SECURITY.md)** - Security pipeline and validation order
+- **[API.md](docs/API.md)** - API endpoints and examples
+- **[CONFIG.md](docs/CONFIG.md)** - Configuration options
 
 ## Testing
 
