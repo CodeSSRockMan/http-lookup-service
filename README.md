@@ -9,6 +9,8 @@ A high-performance FastAPI-based URL threat intelligence service for validating 
 - ✅ **Threat Pattern Detection** - Identifies SQL injection, XSS, path traversal, and more
 - ✅ **URL Sanitization** - Strips harmful characters and decodes URL-encoded strings
 - ✅ **Comprehensive Tests** - 38 test cases covering all functionality
+- ✅ **Modern Web UI** - Beautiful search interface and real-time dashboard
+- ✅ **Configurable** - YAML-based configuration for all settings
 
 ## Quick Start
 
@@ -23,7 +25,20 @@ pip install -r requirements.txt
 python main.py
 
 # Server runs on http://localhost:8000 (or your configured port)
+# Access the web interface at http://localhost:8000
+# Access the dashboard at http://localhost:8000/dashboard
+# Access API docs at http://localhost:8000/docs
 ```
+
+## Web Interface
+
+The service includes a modern web interface:
+
+- **Search Page** (`/`) - Google-like URL checker with real-time results
+- **Dashboard** (`/dashboard`) - Live statistics and monitoring
+- **API Docs** (`/docs`) - Interactive API documentation
+
+Simply open `http://localhost:8000` in your browser!
 
 ## API Usage
 
@@ -41,6 +56,7 @@ curl http://localhost:5000/health
 ## Documentation
 
 - **API Reference**: [docs/API.md](docs/API.md)
+- **Frontend Guide**: [docs/FRONTEND.md](docs/FRONTEND.md) - **How to use the web interface**
 - **Configuration Guide**: [docs/CONFIG.md](docs/CONFIG.md) - **How to change port and other settings**
 - **Security Architecture**: [docs/SECURITY.md](docs/SECURITY.md) - **Important: Read this to understand the security pipeline**
 - **Database Schema**: [databases/SCHEMA.md](databases/SCHEMA.md)
