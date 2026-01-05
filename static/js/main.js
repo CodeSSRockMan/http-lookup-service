@@ -48,76 +48,106 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function displayResults(data) {
-        const isSafe = !data.malicious_patterns?.found && 
-                      (data.lookup_result?.status === 'safe' || data.lookup_result?.status === 'unknown');
+        // Determine decision and styling
+        const decision = data.decision || 'UNKNOWN';
+        const isAllowed = decision === 'ALLOW';
         
-        const statusIcon = isSafe ? '✅' : '⚠️';
-        const statusText = isSafe ? 'Safe' : 'Threat Detected';
-        const statusClass = isSafe ? 'badge-safe' : 'badge-malicious';
+        const statusIcon = isAllowed ? '✅' : '🚫';
+        const statusText = decision;
+        const statusClass = isAllowed ? 'decision-allow' : 'decision-deny';
+        const bannerClass = isAllowed ? 'success-banner' : 'danger-banner';
 
         let html = `
             <div class="result-card">
-                <div class="result-header">
-                    <div class="status-icon">${statusIcon}</div>
-                    <div class="result-title">
-                        <h3>${statusText}</h3>
-                        <div class="result-url">${escapeHtml(data.url)}</div>
+                <!-- Decision Banner -->
+                <div class="decision-banner ${bannerClass}">
+                    <div class="decision-icon">${statusIcon}</div>
+                    <div class="decision-content">
+                        <div class="decision-title">${statusText}</div>
+                        ${data.reason ? `<div class="decision-reason">${escapeHtml(data.reason)}</div>` : 
+                          '<div class="decision-reason">No threats detected - URL is safe to visit</div>'}
                     </div>
                 </div>
 
-                <!-- Domain Information -->
+                ${data.threat_detected ? `
+                <!-- Threat Information -->
+                <div class="threat-alert">
+                    <h4>⚠️ Threat Information</h4>
+                    <div class="threat-details">
+                        <div class="threat-row">
+                            <span class="threat-label">Type:</span>
+                            <span class="threat-badge">${escapeHtml(data.threat_detected.type?.replace(/_/g, ' ').toUpperCase())}</span>
+                        </div>
+                        <div class="threat-row">
+                            <span class="threat-label">Severity:</span>
+                            <span class="severity-badge severity-${data.threat_detected.severity}">${data.threat_detected.severity?.toUpperCase()}</span>
+                        </div>
+                        <div class="threat-row">
+                            <span class="threat-label">Description:</span>
+                            <span class="threat-value">${escapeHtml(data.threat_detected.description)}</span>
+                        </div>
+                        ${data.threat_detected.pattern ? `
+                        <div class="threat-row">
+                            <span class="threat-label">Pattern:</span>
+                            <span class="pattern-text">${escapeHtml(data.threat_detected.pattern)}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- URL Information -->
                 <div class="result-section">
-                    <h4>🌐 Domain Information</h4>
+                    <h4>🔍 URL Information</h4>
                     <div class="info-grid">
                         <div class="info-item">
+                            <span class="info-label">URL</span>
+                            <span class="info-value url-text">${escapeHtml(data.url)}</span>
+                        </div>
+                        <div class="info-item">
                             <span class="info-label">Hostname</span>
-                            <span class="info-value">${escapeHtml(data.lookup_result?.hostname || '-')}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Reputation</span>
-                            <span class="info-value">
-                                <span class="badge ${getBadgeClass(data.lookup_result?.status)}">
-                                    ${data.lookup_result?.status?.toUpperCase() || 'UNKNOWN'}
-                                </span>
-                            </span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Database</span>
-                            <span class="info-value">${data.lookup_result?.found ? '✅ Found' : '❌ Not Found'}</span>
+                            <span class="info-value">${escapeHtml(data.hostname || '-')}</span>
                         </div>
                     </div>
-                    ${data.lookup_result?.description ? `
-                        <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 8px;">
-                            <strong>Details:</strong> ${escapeHtml(data.lookup_result.description)}
-                        </div>
-                    ` : ''}
                 </div>
 
-                <!-- Malicious Patterns -->
+                <!-- Security Checks -->
+                ${data.security_checks ? `
                 <div class="result-section">
-                    <h4>🛡️ Security Check</h4>
-                    ${data.malicious_patterns?.found ? `
-                        <div class="threat-alert">
-                            <h5>⚠️ Malicious Pattern Detected</h5>
-                            <div class="threat-details">
-                                <p><strong>Pattern:</strong> ${escapeHtml(data.malicious_patterns.pattern)}</p>
-                                <p><strong>Type:</strong> ${escapeHtml(data.malicious_patterns.threat_type?.toUpperCase())}</p>
-                                <p><strong>Category:</strong> ${escapeHtml(data.malicious_patterns.pattern_type)}</p>
-                                <p><strong>Description:</strong> ${escapeHtml(data.malicious_patterns.description)}</p>
+                    <h4>🛡️ Security Checks</h4>
+                    <div class="checks-grid">
+                        <div class="check-item">
+                            <div class="check-header">
+                                <span class="check-icon">${data.security_checks.malicious_patterns?.found ? '❌' : '✅'}</span>
+                                <span class="check-title">Malicious Patterns</span>
                             </div>
+                            <div class="check-status ${data.security_checks.malicious_patterns?.found ? 'status-bad' : 'status-good'}">
+                                ${data.security_checks.malicious_patterns?.found ? 'Detected' : 'Clean'}
+                            </div>
+                            ${data.security_checks.malicious_patterns?.found ? `
+                            <div class="check-details">
+                                <p><strong>Type:</strong> ${escapeHtml(data.security_checks.malicious_patterns.threat_type?.replace(/_/g, ' '))}</p>
+                                <p><strong>Pattern:</strong> <code>${escapeHtml(data.security_checks.malicious_patterns.pattern)}</code></p>
+                            </div>
+                            ` : ''}
                         </div>
-                    ` : `
-                        <div style="padding: 15px; background: rgba(52, 168, 83, 0.1); border-radius: 8px; color: var(--success-color);">
-                            <strong>✅ No malicious patterns detected</strong>
-                            <p style="margin-top: 8px; opacity: 0.8;">This URL passed all security checks.</p>
+                        
+                        <div class="check-item">
+                            <div class="check-header">
+                                <span class="check-icon">${getDomainIcon(data.security_checks.domain_reputation?.status)}</span>
+                                <span class="check-title">Domain Reputation</span>
+                            </div>
+                            <div class="check-status ${getDomainStatusClass(data.security_checks.domain_reputation?.status)}">
+                                ${(data.security_checks.domain_reputation?.status || 'unknown').toUpperCase()}
+                            </div>
+                            ${data.security_checks.domain_reputation?.description ? `
+                            <div class="check-details">
+                                <p>${escapeHtml(data.security_checks.domain_reputation.description)}</p>
+                            </div>
+                            ` : ''}
                         </div>
-                    `}
-                </div>
-
-                ${data.lookup_result?.last_updated ? `
-                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color); color: var(--text-secondary); font-size: 13px;">
-                        Last updated: ${new Date(data.lookup_result.last_updated).toLocaleString()}
                     </div>
+                </div>
                 ` : ''}
             </div>
         `;
@@ -132,19 +162,29 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayError(message) {
         const html = `
             <div class="result-card">
-                <div class="result-header">
-                    <div class="status-icon">❌</div>
-                    <div class="result-title">
-                        <h3>Error</h3>
+                <div class="decision-banner danger-banner">
+                    <div class="decision-icon">❌</div>
+                    <div class="decision-content">
+                        <div class="decision-title">ERROR</div>
+                        <div class="decision-reason">${escapeHtml(typeof message === 'string' ? message : message.message || 'Unknown error')}</div>
                     </div>
-                </div>
-                <div class="result-section">
-                    <p style="color: var(--danger-color);">${escapeHtml(typeof message === 'string' ? message : message.message || 'Unknown error')}</p>
                 </div>
             </div>
         `;
         resultsContainer.innerHTML = html;
         resultsContainer.style.display = 'block';
+    }
+
+    function getDomainIcon(status) {
+        if (status === 'safe') return '✅';
+        if (status === 'malicious' || status === 'phishing' || status === 'blacklisted') return '❌';
+        return '❓';
+    }
+
+    function getDomainStatusClass(status) {
+        if (status === 'safe') return 'status-good';
+        if (status === 'malicious' || status === 'phishing' || status === 'blacklisted') return 'status-bad';
+        return 'status-neutral';
     }
 
     function getBadgeClass(status) {

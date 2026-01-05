@@ -259,8 +259,14 @@ def validate_url_regex(url):
 @app.get("/urlinfo/1/{url_parts:path}")
 async def check_url(url_parts: str = Path(..., description="Full path with hostname_and_port/original_path_and_query_string"), request: Request = None):
     """
-    Endpoint to check URL information.
+    Endpoint to check URL information with clear ALLOW/DENY decision.
     Format: /urlinfo/1/{hostname_and_port}/{original_path_and_query_string}
+    
+    Returns:
+        - decision: "ALLOW" or "DENY"
+        - reason: Why it was denied (if applicable)
+        - threat_detected: Threat information (if applicable)
+        - security_checks: Detailed security check results
     
     Args:
         url_parts: The full path containing hostname_and_port and original_path_and_query_string
@@ -294,13 +300,12 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
             parts = url_parts.split('/', 1)
             
             if len(parts) < 1:
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        'error': 'Invalid URL format',
-                        'message': 'Expected format: /urlinfo/1/{hostname_and_port}/{original_path_and_query_string}'
-                    }
-                )
+                return {
+                    'valid': False,
+                    'decision': 'DENY',
+                    'reason': 'Invalid URL format - missing hostname',
+                    'url': url_parts
+                }
             
             hostname_and_port = parts[0]
             original_path_and_query = parts[1] if len(parts) > 1 else ''
@@ -317,32 +322,31 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
         #         WHY: URL parsing normalizes ../ which would hide path traversal attacks
         #         Check the reconstructed URL BEFORE decoding/normalization
         if '../' in reconstructed_url or '..\\' in reconstructed_url or '%2e%2e' in reconstructed_url.lower():
-            # This is a path traversal attempt
-            malicious_info = {
-                'pattern': '../',
-                'pattern_type': 'path',
-                'threat_type': 'path_traversal',
-                'description': 'Directory traversal pattern detected'
-            }
-            # Still process the URL but flag it immediately
-            decoded_url = decode_url_parts(reconstructed_url)
-            sanitized_url = sanitize_url(decoded_url)
+            # Path traversal detected - DENY immediately
+            stats['total_checks'] += 1
+            stats['threats_detected'] += 1
             
             return {
-                'valid': False,
+                'valid': True,
+                'decision': 'DENY',
+                'reason': 'Path traversal attack detected',
                 'url': reconstructed_url,
-                'lookup_result': {
-                    'found': False,
-                    'hostname': 'N/A',
-                    'status': 'blocked',
-                    'message': 'Path traversal attack detected'
+                'hostname': reconstructed_url.split('//')[-1].split('/')[0].split(':')[0],
+                'threat_detected': {
+                    'type': 'path_traversal',
+                    'severity': 'high',
+                    'description': 'Directory traversal pattern detected',
+                    'pattern': '../ or ..\\ or %2e%2e'
                 },
-                'malicious_patterns': {
-                    'found': True,
-                    'pattern': malicious_info['pattern'],
-                    'pattern_type': malicious_info['pattern_type'],
-                    'threat_type': malicious_info['threat_type'],
-                    'description': malicious_info['description']
+                'security_checks': {
+                    'malicious_patterns': {
+                        'found': True,
+                        'pattern': '../',
+                        'pattern_type': 'path',
+                        'threat_type': 'path_traversal',
+                        'description': 'Directory traversal pattern detected'
+                    },
+                    'domain_reputation': None
                 }
             }
         
@@ -354,14 +358,12 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
         # STEP 2: VALIDATE FORMAT - Check if it's a valid HTTP/HTTPS URL structure
         #         WHY: No point in further processing if URL format is invalid.
         if not validate_url_regex(decoded_url):
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    'error': 'Invalid HTTP URL',
-                    'message': 'URL does not match valid HTTP/HTTPS format',
-                    'url': decoded_url
-                }
-            )
+            return {
+                'valid': False,
+                'decision': 'DENY',
+                'reason': 'Invalid URL format - does not match HTTP/HTTPS structure',
+                'url': decoded_url
+            }
         
         # STEP 3: PATTERN MATCH - Check decoded content for malicious patterns
         #         WHY: Must check the actual decoded chars to detect SQLi, XSS, etc.
@@ -381,77 +383,103 @@ async def check_url(url_parts: str = Path(..., description="Full path with hostn
         # Lookup domain in database
         domain_info = await lookup_domain(hostname)
         
-        if domain_info:
-            result = {
-                'valid': True,
-                'url': sanitized_url,
-                'lookup_result': {
-                    'found': True,
-                    'hostname': domain_info['hostname'],
-                    'status': domain_info['status'],
-                    'description': domain_info['description'],
-                    'last_updated': domain_info['last_updated']
-                }
-            }
-        else:
-            result = {
-                'valid': True,
-                'url': sanitized_url,
-                'lookup_result': {
-                    'found': False,
-                    'hostname': hostname,
-                    'status': 'unknown',
-                    'message': 'Domain not found in database'
-                }
+        # =====================================================================
+        # DECISION LOGIC: Determine ALLOW or DENY
+        # =====================================================================
+        
+        decision = 'ALLOW'
+        deny_reason = None
+        threat_info = None
+        severity = None
+        
+        # Priority 1: Check malicious patterns first (highest priority)
+        if malicious_info:
+            decision = 'DENY'
+            threat_type = malicious_info['threat_type']
+            deny_reason = f"Malicious pattern detected: {threat_type.replace('_', ' ')}"
+            severity = 'critical' if threat_type == 'sql_injection' else 'high'
+            threat_info = {
+                'type': threat_type,
+                'severity': severity,
+                'description': malicious_info['description'],
+                'pattern': malicious_info.get('pattern', 'N/A')
             }
         
-        # If malicious patterns found, add to result
-        if malicious_info:
-            result['malicious_patterns'] = {
-                'found': True,
-                'pattern': malicious_info['pattern'],
-                'pattern_type': malicious_info['pattern_type'],
-                'threat_type': malicious_info['threat_type'],
-                'description': malicious_info['description']
+        # Priority 2: Check domain reputation
+        elif domain_info:
+            status = domain_info['status']
+            if status in ['malicious', 'phishing', 'blacklisted']:
+                decision = 'DENY'
+                deny_reason = f"Domain is {status}"
+                severity = 'critical' if status in ['malicious', 'phishing'] else 'high'
+                threat_info = {
+                    'type': status,
+                    'severity': severity,
+                    'description': domain_info.get('description', f'Known {status} domain'),
+                    'last_updated': domain_info.get('last_updated')
+                }
+        
+        # Build security checks result
+        security_checks = {
+            'malicious_patterns': {
+                'found': malicious_info is not None,
+                'pattern': malicious_info.get('pattern') if malicious_info else None,
+                'pattern_type': malicious_info.get('pattern_type') if malicious_info else None,
+                'threat_type': malicious_info.get('threat_type') if malicious_info else None,
+                'description': malicious_info.get('description') if malicious_info else None
+            } if malicious_info else {'found': False},
+            'domain_reputation': {
+                'found': domain_info is not None,
+                'hostname': domain_info['hostname'] if domain_info else hostname,
+                'status': domain_info['status'] if domain_info else 'unknown',
+                'description': domain_info.get('description') if domain_info else None,
+                'last_updated': domain_info.get('last_updated') if domain_info else None
             }
-        else:
-            result['malicious_patterns'] = {
-                'found': False
-            }
+        }
+        
+        # Build response
+        response_data = {
+            'valid': True,
+            'decision': decision,
+            'url': sanitized_url,
+            'hostname': hostname,
+            'security_checks': security_checks
+        }
+        
+        # Add reason and threat info if denied
+        if decision == 'DENY':
+            response_data['reason'] = deny_reason
+            response_data['threat_detected'] = threat_info
         
         # Update statistics
         stats['total_checks'] += 1
-        if malicious_info:
+        if decision == 'DENY':
             stats['threats_detected'] += 1
         elif domain_info and domain_info['status'] == 'safe':
             stats['safe_urls'] += 1
-        elif not domain_info:
+        else:
             stats['unknown_domains'] += 1
         
         # Store recent check (keep last 10)
         stats['recent_checks'].insert(0, {
             'url': sanitized_url,
-            'status': 'threat' if malicious_info else (domain_info['status'] if domain_info else 'unknown'),
+            'status': 'threat' if decision == 'DENY' else (domain_info['status'] if domain_info else 'unknown'),
             'timestamp': datetime.now().isoformat()
         })
         stats['recent_checks'] = stats['recent_checks'][:10]
         
-        # Metrics are tracked at the beginning of the function
-
-
-        
-        return result
+        return response_data
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                'error': 'Processing error',
-                'message': str(e)
-            }
-        )
+        logger.error(f"Error checking URL: {str(e)}")
+        return {
+            'valid': False,
+            'decision': 'DENY',
+            'reason': 'Internal server error',
+            'error': str(e)
+        }
 
 
 # Frontend Routes

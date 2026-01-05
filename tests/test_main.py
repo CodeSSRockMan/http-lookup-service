@@ -119,13 +119,17 @@ class TestCheckUrlEndpoint:
     
     def test_invalid_url_missing_hostname(self):
         response = client.get("/urlinfo/1//path")
-        assert response.status_code == 400
+        assert response.status_code == 200  # Now returns 200 with DENY decision
+        data = response.json()
+        assert data['decision'] == 'DENY'
+        assert data['valid'] == False
     
     def test_invalid_port_out_of_range(self):
         response = client.get("/urlinfo/1/example.com:99999/path")
-        assert response.status_code == 400
+        assert response.status_code == 200  # Now returns 200 with DENY decision
         data = response.json()
-        assert 'error' in data['detail']
+        assert data['decision'] == 'DENY'
+        assert data['valid'] == False
     
     def test_url_with_encoded_characters(self):
         response = client.get("/urlinfo/1/example.com/path%20with%20spaces")
@@ -150,77 +154,93 @@ class TestCheckUrlEndpoint:
 
 
 class TestDatabaseLookup:
-    """Test database lookup functionality"""
+    """Test database lookup functionality with ALLOW/DENY decisions"""
     
     def test_lookup_known_safe_domain(self):
         response = client.get("/urlinfo/1/example.com/path")
         assert response.status_code == 200
         data = response.json()
         assert data['valid'] == True
-        assert data['lookup_result']['found'] == True
-        assert data['lookup_result']['status'] == 'safe'
+        assert data['decision'] == 'ALLOW'
+        assert data['security_checks']['domain_reputation']['found'] == True
+        assert data['security_checks']['domain_reputation']['status'] == 'safe'
     
     def test_lookup_malicious_domain(self):
         response = client.get("/urlinfo/1/malicious-site.com/download")
         assert response.status_code == 200
         data = response.json()
-        assert data['lookup_result']['found'] == True
-        assert data['lookup_result']['status'] == 'malicious'
+        assert data['decision'] == 'DENY'
+        assert 'malicious' in data['reason'].lower()
+        assert data['security_checks']['domain_reputation']['found'] == True
+        assert data['security_checks']['domain_reputation']['status'] == 'malicious'
+        assert data['threat_detected']['type'] == 'malicious'
     
     def test_lookup_phishing_domain(self):
         response = client.get("/urlinfo/1/phishing-bank.com")
         assert response.status_code == 200
         data = response.json()
-        assert data['lookup_result']['found'] == True
-        assert data['lookup_result']['status'] == 'phishing'
+        assert data['decision'] == 'DENY'
+        assert 'phishing' in data['reason'].lower()
+        assert data['security_checks']['domain_reputation']['status'] == 'phishing'
+        assert data['threat_detected']['type'] == 'phishing'
     
     def test_lookup_blacklisted_domain(self):
         response = client.get("/urlinfo/1/spam-domain.net")
         assert response.status_code == 200
         data = response.json()
-        assert data['lookup_result']['found'] == True
-        assert data['lookup_result']['status'] == 'blacklisted'
+        assert data['decision'] == 'DENY'
+        assert 'blacklisted' in data['reason'].lower()
+        assert data['security_checks']['domain_reputation']['status'] == 'blacklisted'
+        assert data['threat_detected']['type'] == 'blacklisted'
     
     def test_lookup_unknown_domain(self):
         response = client.get("/urlinfo/1/unknown-domain-xyz.com/path")
         assert response.status_code == 200
         data = response.json()
         assert data['valid'] == True
-        assert data['lookup_result']['found'] == False
-        assert data['lookup_result']['status'] == 'unknown'
+        assert data['decision'] == 'ALLOW'  # Unknown domains are allowed
+        assert data['security_checks']['domain_reputation']['found'] == False
+        assert data['security_checks']['domain_reputation']['status'] == 'unknown'
 
 
 class TestMaliciousPatterns:
-    """Test malicious query pattern detection"""
+    """Test malicious query pattern detection with ALLOW/DENY decisions"""
     
     def test_sql_injection_detection(self):
         # URL encode the query parameter
         response = client.get("/urlinfo/1/example.com/search?q=SELECT%20*%20FROM%20users")
         assert response.status_code == 200
         data = response.json()
-        assert data['malicious_patterns']['found'] == True
-        assert data['malicious_patterns']['threat_type'] == 'sql_injection'
+        assert data['decision'] == 'DENY'
+        assert data['security_checks']['malicious_patterns']['found'] == True
+        assert data['security_checks']['malicious_patterns']['threat_type'] == 'sql_injection'
+        assert data['threat_detected']['type'] == 'sql_injection'
     
     def test_xss_detection(self):
         # URL encode the script tag
         response = client.get("/urlinfo/1/example.com/page?input=%3Cscript%3Ealert(1)%3C/script%3E")
         assert response.status_code == 200
         data = response.json()
-        assert data['malicious_patterns']['found'] == True
-        assert data['malicious_patterns']['threat_type'] == 'xss'
+        assert data['decision'] == 'DENY'
+        assert data['security_checks']['malicious_patterns']['found'] == True
+        assert data['security_checks']['malicious_patterns']['threat_type'] == 'xss'
+        assert data['threat_detected']['type'] == 'xss'
     
     def test_path_traversal_detection(self):
         response = client.get("/urlinfo/1/example.com/..%2F..%2F..%2Fetc%2Fpasswd")
         assert response.status_code == 200
         data = response.json()
-        assert data['malicious_patterns']['found'] == True
-        assert data['malicious_patterns']['threat_type'] == 'path_traversal'
+        assert data['decision'] == 'DENY'
+        assert data['security_checks']['malicious_patterns']['found'] == True
+        assert data['security_checks']['malicious_patterns']['threat_type'] == 'path_traversal'
+        assert data['threat_detected']['type'] == 'path_traversal'
     
     def test_clean_url_no_threats(self):
         response = client.get("/urlinfo/1/example.com/products?id=123")
         assert response.status_code == 200
         data = response.json()
-        assert data['malicious_patterns']['found'] == False
+        assert data['decision'] == 'ALLOW'
+        assert data['security_checks']['malicious_patterns']['found'] == False
 
 
 class TestHealthEndpoint:
